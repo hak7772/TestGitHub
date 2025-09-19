@@ -1,0 +1,39 @@
+# Используем базовый образ с Java 8
+FROM openjdk:8-jdk-slim
+
+# Устанавливаем рабочую директорию внутри контейнера
+WORKDIR /app
+
+# Копируем pom.xml для загрузки зависимостей
+COPY pom.xml .
+# Если есть файл settings.xml, то копируем его тоже
+COPY settings.xml .
+
+# Загружаем Maven зависимости (если нужно, настройте пути к settings.xml)
+RUN apt-get update && apt-get install -y maven
+RUN mvn dependency:go-offline
+
+# Копируем исходный код
+COPY src ./src
+
+# Собираем приложение с помощью Maven (пропускаем тесты)
+RUN mvn clean install -DskipTests
+
+# Важно: Узнайте точное имя jar-файла после сборки
+# Обычно в каталоге target лежит файл с именем <artifactId>-<version>.jar
+
+# Создаем runtime образ (можно использовать jre-slim, если не нужна отладка)
+FROM openjdk:8-jre-slim
+
+# Устанавливаем рабочую директорию
+WORKDIR /app
+
+# Копируем собранный jar-файл из build-образа
+# Замените <Your-Jar-File>.jar на фактическое имя вашего jar файла
+COPY --from=0 /app/target/<Your-Jar-File>.jar app.jar
+
+# Открываем порт для доступа к приложению (по умолчанию 8080)
+EXPOSE 8080
+
+# Запускаем приложение
+ENTRYPOINT ["java","-jar","app.jar"]
